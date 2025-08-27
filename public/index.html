@@ -381,7 +381,11 @@
             });
 
             socket.on('error', (data) => {
-                showNotification(data.message, 'error');
+                if (data.code === 'EMPTY_MESSAGE') {
+                    showNotification('Message cannot be empty', 'error');
+                } else {
+                    showNotification(data.message, 'error');
+                }
             });
 
             socket.on('roomsList', (roomsList) => {
@@ -540,10 +544,10 @@
 
             messageDiv.className = `message ${isOwn ? 'own' : ''}`;
             messageDiv.innerHTML = `
-                <div class="message-header">
-                    <span><strong>${message.author}</strong></span>
-                    <span>${formatTime(message.timestamp)}</span>
-                </div>
+                        <div class="message-header">
+            <span><strong>${message.author}</strong></span>
+            <span>${formatTime(message.time)}</span>
+        </div>
                 <div class="message-text">${message.text}</div>
             `;
 
@@ -568,9 +572,9 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // Format timestamp
-        function formatTime(timestamp) {
-            const date = new Date(timestamp);
+        // Format time
+        function formatTime(time) {
+            const date = new Date(time);
             return date.toLocaleTimeString();
         }
 

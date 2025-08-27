@@ -73,11 +73,21 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Check for empty or whitespace-only messages
+    if (!message || String(message).trim().length === 0) {
+      socket.emit('error', {
+        code: 'EMPTY_MESSAGE',
+        message: 'Message cannot be empty',
+      });
+
+      return;
+    }
+
     const messageObj = {
       id: Date.now().toString(),
       author: username,
       text: message,
-      timestamp: new Date().toISOString(),
+      time: Date.now(),
       room: roomName,
     };
 
@@ -136,9 +146,27 @@ io.on('connection', (socket) => {
 
     room.name = newName;
 
+    // Move all clients from old room to new room
+    const clientsInRoom = io.sockets.adapter.rooms.get(oldName);
+
+    if (clientsInRoom) {
+      clientsInRoom.forEach((clientId) => {
+        const clientSocket = io.sockets.sockets.get(clientId);
+
+        if (clientSocket) {
+          clientSocket.leave(oldName);
+          clientSocket.join(newName);
+          clientSocket.currentRoom = newName;
+        }
+      });
+    }
+
+    // Update room data structure
     rooms.delete(oldName);
+
     rooms.set(newName, room);
 
+    // Notify all clients about the rename
     io.emit('roomRenamed', { oldName, newName });
   });
 
@@ -158,7 +186,28 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Notify clients in the room before deletion
+    io.to(roomName).emit('roomDeleted', { room: roomName });
+
+    // Move all clients from deleted room to general room
+    const clientsInRoom = io.sockets.adapter.rooms.get(roomName);
+
+    if (clientsInRoom) {
+      clientsInRoom.forEach((clientId) => {
+        const clientSocket = io.sockets.sockets.get(clientId);
+
+        if (clientSocket) {
+          clientSocket.leave(roomName);
+          clientSocket.join('general');
+          clientSocket.currentRoom = 'general';
+        }
+      });
+    }
+
+    // Delete the room
     rooms.delete(roomName);
+
+    // Notify all clients about the deletion
     io.emit('roomDeleted', { roomName });
   });
 
